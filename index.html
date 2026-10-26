@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stop Deli - Sistema de Fidelidad</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#fff1f1',
+                            100: '#ffdfdf',
+                            500: '#ff6600',
+                            600: '#e65c00',
+                            700: '#cc5200',
+                            900: '#1a1a1a',
+                        },
+                        darkBg: '#0f0f11',
+                        cardBg: '#18181b',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #0b0b0e; color: #f3f4f6; }
+        .custom-shadow {
+            box-shadow: 0 10px 25px -5px rgba(255, 102, 0, 0.15), 0 8px 10px -6px rgba(255, 102, 0, 0.1);
+        }
+        .stamp-pulse {
+            animation: pulse-border 2s infinite;
+        }
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(255, 102, 0, 0.5); }
+            70% { box-shadow: 0 0 0 12px rgba(255, 102, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 102, 0, 0); }
+        }
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-orange-500 selection:text-white">
+
+    <!-- Custom Notification Modal -->
+    <div id="modal-container" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md hidden p-4">
+        <div class="bg-[#18181b] border border-zinc-800 rounded-3xl p-6 max-w-sm w-full mx-auto shadow-2xl transform transition-all text-center">
+            <div id="modal-icon" class="w-16 h-16 bg-orange-500/10 text-orange-500 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 border border-orange-500/20">
+                <i class="fa-solid fa-bell"></i>
+            </div>
+            <h3 id="modal-title" class="text-xl font-bold text-white mb-2">Aviso</h3>
+            <p id="modal-message" class="text-zinc-400 text-sm mb-6">Mensaje del sistema...</p>
+            <button onclick="closeModal()" class="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold py-3.5 px-4 rounded-xl transition duration-200 shadow-lg shadow-orange-500/20">
+                Entendido
+            </button>
+        </div>
+    </div>
+
+    <!-- Claim Reward Modal -->
+    <div id="reward-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md hidden p-4">
+        <div class="bg-[#18181b] border border-zinc-800 rounded-3xl p-6 max-w-md w-full mx-auto shadow-2xl space-y-4">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-3 border border-amber-500/20 animate-bounce">
+                    🎁
+                </div>
+                <h3 class="text-xl font-bold text-white">¡Felicidades!</h3>
+                <p class="text-zinc-400 text-xs mt-1">Ya tienes 6 sellos. Puedes canjear tu recompensa.</p>
+            </div>
+            <div class="space-y-3 pt-2">
+                <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider">Selecciona tu premio:</label>
+                <div class="space-y-2" id="reward-options-list">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+            <button onclick="confirmClaimReward()" class="w-full mt-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold py-3.5 px-4 rounded-xl transition shadow-lg shadow-orange-500/20">
+                Canjear recompensa
+            </button>
+            <button onclick="closeRewardModal()" class="w-full text-zinc-500 hover:text-zinc-300 text-xs py-2 font-medium">
+                Cancelar / Guardar para después
+            </button>
+        </div>
+    </div>
+
+    <!-- Admin Cashier Action Modal -->
+    <div id="admin-cashier-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md hidden p-4">
+        <div class="bg-[#18181b] border border-zinc-800 rounded-3xl p-6 max-w-md w-full mx-auto shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b border-zinc-800 pb-3">
+                <div class="flex items-center space-x-2">
+                    <div class="w-10 h-10 bg-orange-500/10 text-orange-500 rounded-xl flex items-center justify-center"><i class="fa-solid fa-receipt"></i></div>
+                    <div>
+                        <h3 class="font-bold text-white text-base">Registrar Consumo</h3>
+                        <p class="text-[10px] text-zinc-400">Caja y validación de sellos</p>
+                    </div>
+                </div>
+                <button onclick="closeCashierModal()" class="text-zinc-500 hover:text-white p-2"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div id="cashier-client-info" class="bg-zinc-900/80 p-3 rounded-2xl border border-zinc-800/80 text-xs space-y-1">
+                <!-- Filled via JS -->
+            </div>
+            <form onsubmit="submitCashierStamp(event)" class="space-y-3">
+                <input type="hidden" id="cashier-target-cedula">
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">Número de factura</label>
+                    <input type="text" id="cashier-factura" required placeholder="Ej. 000123" 
+                        class="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white text-sm outline-none focus:border-orange-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">Valor de la factura ($)</label>
+                    <input type="number" step="0.01" min="0" id="cashier-valor" required placeholder="Ej. 20.00" 
+                        class="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white text-sm outline-none focus:border-orange-500">
+                    <p class="text-[10px] text-zinc-500 mt-1">Debe ser mayor o igual a $20 para obtener un sello.</p>
+                </div>
+                <div class="bg-orange-500/10 border border-orange-500/20 p-3 rounded-xl flex items-center justify-between text-xs text-orange-400">
+                    <span id="cashier-preview-text">Sellos a otorgar: +0</span>
+                    <span id="cashier-preview-reward" class="font-bold"></span>
+                </div>
+                <button type="submit" class="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold py-3.5 px-4 rounded-xl transition shadow-lg shadow-orange-500/20">
+                    Registrar consumo y sellar
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Top Navigation Header -->
+    <header class="bg-[#121215] border-b border-zinc-800 sticky top-0 z-40">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="switchMainView('client')">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center text-white font-black text-xl shadow-md shadow-orange-600/30">
+                    <i class="fa-solid fa-drumstick-bite"></i>
+                </div>
+                <div>
+                    <h1 class="font-black tracking-wider text-base leading-tight text-white flex items-center gap-1.5">STOP <span class="text-orange-500">DELI</span></h1>
+                    <p class="text-[10px] text-zinc-400">ALITAS • BURGERS • SNACKS</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <button id="nav-btn-client" onclick="switchMainView('client')" class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20 transition">
+                    <i class="fa-solid fa-mobile-screen mr-1"></i> App Cliente (QR)
+                </button>
+                <button id="nav-btn-admin" onclick="openAdminPortal()" class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-zinc-900 text-zinc-300 border border-zinc-800 hover:bg-zinc-800 transition">
+                    <i class="fa-solid fa-lock mr-1"></i> Admin / Caja
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-6xl mx-auto px-4 py-6 w-full flex-grow pb-24 md:pb-8">
+
+        <!-- ================= MAIN VIEW: CLIENT (Mobile Frame or Full) ================= -->
+        <div id="view-client" class="max-w-md mx-auto space-y-6">
+
+            <!-- SCREEN 1: QR LANDING (Not logged in) -->
+            <div id="client-screen-landing" class="bg-[#18181b] border border-zinc-800 rounded-3xl p-6 sm:p-8 space-y-6 text-center custom-shadow">
+                <div class="relative rounded-2xl overflow-hidden shadow-lg border border-zinc-800 group">
+                    <img src="https://images.unsplash.com/photo-1527477396000-e27163b481c2?auto=format&fit=crop&w=800&q=80" alt="Alitas Stop Deli" class="w-full h-52 object-cover transform group-hover:scale-105 transition duration-500">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col justify-end p-4 text-left">
+                        <span class="bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded w-max mb-1">Escanea QR o Entra</span>
+                        <h2 class="text-2xl font-black text-white">¡Bienvenido a Stop Deli!</h2>
+                    </div>
+                </div>
+                <p class="text-xs text-zinc-400 leading-relaxed">
+                    Escanea el código QR en nuestro local y sé parte de nuestra fidelidad. Acumula casillas y gana alitas o refrescos gratis.
+                </p>
+                <button onclick="goToLoginStep()" class="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold py-4 px-4 rounded-2xl transition shadow-lg shadow-orange-500/25 flex items-center justify-center space-x-2">
+                    <span>Comenzar</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+
+            <!-- SCREEN 2: LOGIN / REGISTER (Cédula y Nombre) -->
+            <div id="client-screen-login" class="hidden bg-[#18181b] border border-zinc-800 rounded-3xl p-6 sm:p-8 space-y-6">
+                <div class="text-center">
+                    <div class="inline-block p-3 bg-orange-500/10 text-orange-500 rounded-2xl mb-3 text-2xl border border-orange-500/20">
+                        <i class="fa-solid fa-id-card"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-white">Iniciar sesión</h2>
+                    <p class="text-xs text-zinc-400 mt-1">Ingresa tu cédula y nombre para acceder a tu tarjeta de fidelidad.</p>
+                </div>
+                <form onsubmit="handleClientLogin(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">Cédula (ej. 1234567890)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-zinc-500"><i class="fa-solid fa-id-card"></i></span>
+                            <input type="text" id="login-cedula" required placeholder="Ej. 1728394050" 
+                                class="w-full pl-10 pr-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-white text-sm outline-none focus:border-orange-500 transition">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">Nombre completo</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-zinc-500"><i class="fa-solid fa-user"></i></span>
+                            <input type="text" id="login-nombre" required placeholder="Ej. Carlos Pérez" 
+                                class="w-full pl-10 pr-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-white text-sm outline-none focus:border-orange-500 transition">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold py-3.5 px-4 rounded-2xl transition shadow-lg shadow-orange-500/25">
+                        Iniciar sesión
+                    </button>
+                    <div class="text-center pt-2">
+                        <span class="text-xs text-zinc-500">¿No tienes cuenta? <button type="button" onclick="goToLoginStep()" class="text-orange-400 font-semibold hover:underline">Regístrate</button></span>
+                    </div>
+                </form>
+            </div>
+
+            <!-- SCREEN 3: SUCCESS REGISTRATION POPUP/BANNER -->
+            <div id="client-screen-success" class="hidden bg-[#18181b] border border-zinc-800 rounded-3xl p-8 space-y-6 text-center">
+                <div class="w-20 h-20 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center text-4xl mx-auto border border-emerald-500/20">
+                    <i class="fa-solid fa-check"></i>
+                </div>
+                <div>
+                    <h2 id="success-welcome-title" class="text-2xl font-black text-white">¡Bienvenido, Carlos!</h2>
+                    <p class="text-xs text-zinc-400 mt-1">Tu cuenta ha sido creada correctamente.</p>
+                </div>
+                <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex items-center justify-between text-left">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-orange-500/20 text-orange-400 rounded-xl flex items-center justify-center"><i class="fa-solid fa-user-check"></i></div>
+                        <div>
+                            <h4 id="success-card-name" class="font-bold text-white text-sm">Carlos Pérez</h4>
+                            <p id="success-card-ced" class="text-xs text-zinc-500 font-mono">Cédula: 1728394050</p>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="enterDashboard()" class="w-full bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold py-3.5 px-4 rounded-2xl transition shadow-lg shadow-orange-500/25">
+                    Ver mi tarjeta
+                </button>
+                <p class="text-[10px] text-zinc-500">¡Gracias por ser parte de Stop Deli!</p>
+            </div>
+
+            <!-- SCREEN 4: MAIN CLIENT APP (Tabs: Tarjeta, Movimientos, Recompensas, Perfil) -->
+            <div id="client-app-shell" class="hidden space-y-6">
+
+                <!-- TAB 1: TARJETA DE FIDELIDAD -->
+                <div id="client-tab-card" class="space-y-6">
+                    <!-- User Welcome Card -->
+                    <div class="bg-gradient-to-r from-zinc-900 to-zinc-900/90 border border-zinc-800 rounded-3xl p-6 shadow-xl relative overflow-hidden">
+                        <div class="absolute right-0 bottom-0 opacity-10 translate-x-4 translate-y-4">
+                            <i class="fa-solid fa-drumstick-bite text-9xl"></i>
+                        </div>
+                        <div class="relative z-10 flex justify-between items-start">
+                            <div>
+                                <span class="bg-orange-500/20 text-orange-400 text-[10px] font-semibold px-2.5 py-1 rounded-full border border-orange-500/30 inline-block mb-2">Cliente Activo</span>
+                                <h3 id="dash-client-name" class="text-xl font-black text-white">Carlos Pérez</h3>
+                                <p id="dash-client-ced" class="text-xs text-zinc-400 font-mono">Cédula: 1728394050</p>
+                            </div>
+                            <button onclick="clientLogout()" title="Cerrar sesión" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white p-2.5 rounded-xl transition">
+                                <i class="fa-solid fa-right-from-bracket"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Stamp Card Box -->
+                    <div class="bg-[#18181b] border border-zinc-800 rounded-3xl p-6 space-y-4 shadow-xl">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h4 class="font-bold text-white text-base">Tu tarjeta de fidelidad</h4>
+                                <p id="stamp-subtitle" class="text-xs text-zinc-400">Te faltan 3 sellos para tu recompensa.</p>
+                            </div>
+                            <span class="text-xs font-bold bg-orange-500/10 text-orange-400 px-3 py-1 rounded-full border border-orange-500/20" id="stamp-count-badge">
+                                3 de 6 sellos
+                            </span>
+                        </div>
+
+                        <!-- 6 Stamps Grid -->
+                        <div class="grid grid-cols-3 sm:grid-cols-6 gap-3 my-4" id="client-stamps-grid">
+                            <!-- Populated via JS -->
+                        </div>
+
+                        <!-- Stats Row -->
+                        <div class="grid grid-cols-2 gap-3 pt-2">
+                            <div class="bg-zinc-900 border border-zinc-800 p-3 rounded-2xl text-center">
+                                <span class="text-[10px] text-zinc-400 uppercase font-semibold block">Consumo acumulado</span>
+                                <span id="stat-total-spent" class="text-lg font-black text-white">$60.00</span>
+                            </div>
+                            <div class="bg-zinc-900 border border-zinc-800 p-3 rounded-2xl text-center">
+                                <span class="text-[10px] text-zinc-400 uppercase font-semibold block">Siguiente sello</span>
+                                <span class="text-lg font-black text-orange-400">$20.00</span>
+                            </div>
+                        </div>
+
+                        <!-- Claim Trigger Banner (If rewardsReady > 0) -->
+                        <div id="client-reward-alert" class="hidden bg-gradient-to-r from-amber-500 to-orange-600 p-4 rounded-2xl flex items-center justify-between text-white shadow-lg animate-pulse">
+                            <div class="flex items-center space-x-3">
+                                <div class="text-2xl">🎁</div>
+                                <div>
+                                    <h5 class="font-bold text-sm">¡Tienes una recompensa lista!</h5>
+                                    <p class="text-[10px] text-amber-100">Haz clic para reclamar tus alitas o refresco.</p>
+                                </div>
+                            </div>
+                            <button onclick="openRewardModal()" class="bg-white text-orange-600 font-bold px-3 py-2 rounded-xl text-xs shadow-md">
+                                Reclamar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Promos & Announcements Carousel -->
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <h4 class="font-bold text-white text-sm">Nuestras alitas son la mejor opción</h4>
+                        </div>
+                        <div class="grid grid-cols-1 gap-3">
+                            <div class="bg-gradient-to-r from-zinc-900 to-zinc-900/80 border border-zinc-800 rounded-2xl p-4 flex items-center justify-between gap-4">
+                                <div class="space-y-1">
+                                    <span class="text-[9px] font-bold uppercase bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded">Promoción</span>
+                                    <h5 class="font-bold text-white text-sm">Miércoles 2x1 en Alitas BBQ</h5>
+                                    <p class="text-xs text-zinc-400">Disfruta el doble de sabor todos los miércoles.</p>
+                                </div>
+                                <button onclick="showModal('Promo Stop Deli', 'Presenta tu tarjeta digital en caja para aplicar al 2x1.')" class="bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 py-2 rounded-xl transition whitespace-nowrap">
+                                    Ver menú
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: MOVIMIENTOS -->
+                <div id="client-tab-mov" class="hidden space-y-4">
+                    <div class="bg-[#18181b] border border-zinc-800 rounded-3xl p-6 space-y-4">
+                        <div class="flex justify-between items-center">
+                            <h4 class="font-bold text-white text-base">Mis movimientos</h4>
+                            <div class="flex bg-zinc-900 p-1 rounded-xl text-xs border border-zinc-800">
+                                <button onclick="filterMovs('all')" id="filter-btn-all" class="px-3 py-1 rounded-lg bg-orange-500 text-white font-semibold transition">Todos</button>
+                                <button onclick="filterMovs('cons')" id="filter-btn-cons" class="px-3 py-1 rounded-lg text-zinc-400 hover:text-white transition">Consumos</button>
+                                <button onclick="filterMovs('rew')" id="filter-btn-rew" class="px-3 py-1 rounded-lg text-zinc-400 hover:text-white transition">Premios</button>
+                            </div>
+                        </div>
+                        <div id="client-mov-list" class="divide-y divide-zinc-800 space-y-2">
+                            <!-- Populated via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: RECOMPENSAS -->
+                <div id="client-tab-rewards" class="hidden space-y-4">
+                    <div class="bg-[#18181b] border border-zinc-800 rounded-3xl p-6 space-y-4">
+                        <h4 class="font-bold text-white text-base">Catálogo de Recompensas</h4>
+                        <p class="text-xs text-zinc-400">Al completar tus 6 sellos, puedes canjear cualquiera de los siguientes premios en caja:</p>
+                        <div class="space-y-3 pt-2" id="client-catalog-list">
+                            <!-- Filled via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 4: PERFIL -->
+                <div id="client-tab-profile" class="hidden space-y-4">
+                    <div class="bg-[#18181b] border border-zinc-800 rounded-3xl p-6 space-y-4 text-center">
+                        <div class="w-20 h-20 bg-orange-500/10 text-orange-500 rounded-full flex items-center justify-center text-3xl mx-auto border border-orange-500/20">
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                        <div>
+                            <h3 id="profile-name" class="text-xl font-bold text-white">Carlos Pérez</h3>
+                            <p id="profile-ced" class="text-xs text-zinc-400 font-mono">Cédula: 1728394050</p>
+                        </div>
+                        <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl text-left space-y-2 text-xs">
+                            <div class="flex justify-between"><span class="text-zinc-400">Estado de cuenta:</span><span class="text-emerald-400 font-bold">Activo</span></div>
+                            <div class="flex justify-between"><span class="text-zinc-400">Sellos actuales:</span><span id="profile-stamps" class="text-orange-400 font-bold">3 / 6</span></div>
+                            <div class="flex justify-between"><span class="text-zinc-400">Premios disponibles:</span><span id="profile-rewards-ready" class="text-amber-400 font-bold">0</span></div>
+                        </div>
+                        <button onclick="clientLogout()" class="w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-red-400 font-bold py-3 rounded-xl text-xs transition">
+                            Cerrar sesión en este dispositivo
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Bottom Navigation Bar for Client -->
+                <div class="fixed bottom-0 left-0 right-0 bg-[#121215]/95 backdrop-blur-md border-t border-zinc-800 py-2.5 z-30">
+                    <div class="max-w-md mx-auto flex justify-around items-center px-4">
+                        <button onclick="switchClientTab('card')" id="c-tab-card-btn" class="flex flex-col items-center text-orange-500 space-y-1 transition">
+                            <i class="fa-solid fa-house text-base"></i>
+                            <span class="text-[10px] font-semibold">Inicio</span>
+                        </button>
+                        <button onclick="switchClientTab('mov')" id="c-tab-mov-btn" class="flex flex-col items-center text-zinc-500 hover:text-zinc-300 space-y-1 transition">
+                            <i class="fa-solid fa-clock-rotate-left text-base"></i>
+                            <span class="text-[10px] font-semibold">Movimientos</span>
+                        </button>
+                        <button onclick="switchClientTab('rewards')" id="c-tab-rewards-btn" class="flex flex-col items-center text-zinc-500 hover:text-zinc-300 space-y-1 transition">
+                            <i class="fa-solid fa-gift text-base"></i>
+                            <span class="text-[10px] font-semibold">Premios</span>
+                        </button>
+                        <button onclick="switchClientTab('profile')" id="c-tab-profile-btn" class="flex flex-col items-center text-zinc-500 hover:text-zinc-300 space-y-1 transition">
+                            <i class="fa-solid fa-user text-base"></i>
+                            <span class="text-[10px] font-semibold">Perfil</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- ================= MAIN VIEW: ADMIN / DESKTOP DASHBOARD ================= -->
+        <div id="view-admin" class="hidden space-y-6">
+
+            <!-- Admin Login Section -->
+            <div id="admin-login-box" class="max-w-md mx-auto bg-[#18181b] border border-zinc-800 rounded-3xl p-8 space-y-6 shadow-2xl my-12">
+                <div class="text-center">
+                    <div class="w-16 h-16 bg-orange-500/10 text-orange-500 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-3 border border-orange-500/20">
+                        <i class="fa-solid fa-cash-register"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-white">Panel Administrativo</h2>
+                    <p class="text-xs text-zinc-400 mt-1">Control de caja, clientes, sellos y reportes Stop Deli.</p>
+                </div>
+                <form onsubmit="handleAdminLogin(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">Contraseña de Acceso</label>
+                        <input type="password" id="admin-pass" required placeholder="•••• (Prueba 1234)" 
+                            class="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-white text-sm outline-none focus:border-orange-500">
+                        <p class="text-[10px] text-zinc-500 mt-1">Contraseña sugerida: <span class="text-orange-400 font-bold">1234</span></p>
+                    </div>
+                    <button type="submit" class="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold py-3.5 px-4 rounded-xl transition shadow-lg shadow-orange-500/20">
+                        Ingresar al Sistema
+                    </button>
+                    <button type="button" onclick="switchMainView('client')" class="w-full text-zinc-500 hover:text-white text-xs py-2 font-medium">
+                        ← Volver a la App de Cliente
+                    </button>
+                </form>
+            </div>
+
+            <!-- Admin Dashboard Panel (Full Feature Set) -->
+            <div id="admin-dashboard-box" class="hidden space-y-6">
+                
+                <!-- Admin Header Bar with Navigation Tabs -->
+                <div class="bg-[#18181b] border border-zinc-800 rounded-3xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-xl">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 bg-orange-500/10 text-orange-500 rounded-2xl flex items-center justify-center text-xl font-bold border border-orange-500/20">
+                            <i class="fa-solid fa-chart-pie"></i>
+                        </div>
+                        <div>
+                            <span class="bg-orange-500/20 text-orange-400 text-[10px] font-bold px-2.5 py-1 rounded-full border border-orange-500/30">Panel de Control General</span>
+                            <h2 class="text-xl font-black text-white mt-0.5">Stop Deli Admin</h2>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="switchAdminTab('dash')" id="a-btn-dash" class="px-4 py-2 text-xs font-semibold rounded-xl bg-orange-500 text-white transition shadow-md">Dashboard</button>
+                        <button onclick="switchAdminTab('clients')" id="a-btn-clients" class="px-4 py-2 text-xs font-semibold rounded-xl bg-zinc-900 text-zinc-300 hover:bg-zinc-800 border border-zinc-800 transition">Clientes</button>
+                        <button onclick="switchAdminTab('cashier')" id="a-btn-cashier" class="px-4 py-2 text-xs font-semibold rounded-xl bg-zinc-900 text-zinc-300 hover:bg-zinc-800 border border-zinc-800 transition">Registrar Consumo</button>
+                        <button onclick="switchAdminTab('rewards')" id="a-btn-rewards" class="px-4 py-2 text-xs font-semibold rounded-xl bg-zinc-900 text-zinc-300 hover:bg-zinc-800 border border-zinc-800 transition">Recompensas</button>
+                        <button onclick="switchAdminTab('reports')" id="a-btn-reports" class="px-4 py-2 text-xs font-semibold rounded-xl bg-zinc-900 text-zinc-300 hover:bg-zinc-800 border border-zinc-800 transition">Reportes</button>
+                        <button onclick="adminLogout()" class="px-3 py-2 text-xs font-semibold rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition"><i class="fa-solid fa-lock-open mr-1"></i> Salir</button>
+                    </div>
+                </div>
+
+                <!-- ADMIN TAB 1: DASHBOARD ANALYTICS -->
+                <div id="admin-tab-dash" class="space-y-6">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="bg-[#18181b] border border-zinc-800 rounded-3xl p-5 shadow-lg">
+                            <span class="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Clientes Registrados</span>
+                            <span id="stat-admin-clients" class="text-3xl font-black text-white">124</span>
+                            <span class="text-[10px] text-emerald-400 block mt-1"><i class="fa-solid fa-arrow-up"></i> +12 esta semana</span>
+                        </div>
+                        <div class="bg-[#18181b] border border-zinc-800 rounded-3xl p-5 shadow-lg">
+                            <span class="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Clientes Activos</span>
+                            <span id="stat-admin-active" class="text-3xl font-black text-orange-400">98</span>
+                            <span class="text-[10px] text-zinc-500 block mt-1">Con consumo frecuente</span>
+                        </div>
+                        <div class="bg-[#18181b] border border-zinc-800 rounded-3xl p-5 shadow-lg">
+                            <span class="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Sellos Entregados</span>
+                            <span id="stat-admin-stamps" class="text-3xl font-black text-white">532</span>
+                            <span class="text-[10px] text-orange-400 block mt-1">Total acumulado</span>
+                        </div>
+                        <div class="bg-[#18181b] border border-zinc-800 rounded-3xl p-5 shadow-lg">
+                            <span class="text-[10px] text-zinc-400 uppercase font-bold block mb-1">Premios Canjeados</span>
+                            <span id="stat-admin-rewards" class="text-3xl font-black text-amber-400">87</span>
+                            <span class="text-[10px] text-amber-400 block mt-1">Alitas & Refrescos</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="md:col-span-2 bg-[#18181b] border border-zinc-800 rounded-3xl p-6 space-y-4">
+                            <h4 class="font-bold text-white text-base">Consumo total registrado</h4>
+                            <div class="flex justify-between items-baseline">
+                                <span id="stat-admin-spent-total" class="text-3xl font-black text-white">$2,450.00</span>
+                                <span class="text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-1 rounded-full">+18.5% este mes</span>
+                            </div>
+                            <div class="h-40 flex items-end gap-2 pt-6 border-b border-zinc-800 pb-2" id="admin-chart-bars">
+                                <!-- Simulated Bar chart via JS -->
+                            </div>
+                        </div>
+                        <div class="bg-[#18181b] border border-zinc-800 rounded-3xl p-6 space-y-4">
+                            <h4 class="font-bold text-white text-base">Recompensas más solicitadas</h4>
+                            <div class="space-y-3 pt-2" id="admin-rewards-stats-list">
+                                <!-- Filled via JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ADMIN TAB 2: GESTIÓN DE CLIENTES -->
+                <div id="admin-tab-clients" class="hidden space-y-6">
+                    <div class="bg-[#18181b] border border-zinc-800 rounded-3xl p-6 space-y-4">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <div>
+                                <h4 class="font-bold text-white text-base">Gestión y búsqueda de clientes</h4>
+                                <p class="text-xs text-zinc-400">Consulta los datos, sellos y estado de cualquier cliente.</p>
+                            </div>
+                            <div class="relative w-full sm:w-72">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-zinc-500"><i class="fa-solid fa-magnifying-glass"></i></span>
+                                <input type="text" id="admin-client-search" oninput="filterAdminClientTable(this.value)" placeholder="Buscar por nombre o cédula..." 
+                                    class="w-full pl-10 pr-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white text-xs outline-none focus:border-orange-500">
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="border-b border-zinc-800 text-zinc-400">
+                                        <th class="py-3 px-4 font-semibold">Nombre</th>
+                                        <th class="py-3 px-4 font-semibold">Cédula</th>
+                                        <th class="py-3 px-4 font-semibold">Sellos</th>
+                                        <th class="py-3 px-4 font-semibold">Premios Listos</th>
+                                        <th class="py-3 px-4 font-semibold">Estado</th>
+                                        <th class="py-3 px-4 font-semibold text-right">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-zinc-800/60" id="admin-clients-table-body">
+                                    <!-- Populated via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ADMIN TAB 3: REGISTRAR CONSUMO -->
+                <div id="admin-tab-cashier" class="hidden space-y-6">
+                    <div class="max-w-xl mx-auto bg-[#18181b] border border-zinc-800 rounded-3xl p-6 sm:p-8 space-y-6">
+                        <div>
+                            <h4 class="font-bold text-white text-lg">Registro de consumo en caja</h4>
+                            <p class="text-xs text-zinc-400">Ingresa la cédula del cliente y los datos de su factura para otorgar sellos automáticamente.</p>
+                        </div>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">Buscar cliente por cédula o nombre</label>
+                                <div class="flex gap-2">
+                                    <input type="text" id="admin-cashier-cedula-input" placeholder="Ej. 1728394050..." 
+                                        class="flex-grow px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-white text-sm outline-none focus:border-orange-500">
+                                    <button onclick="adminFindClientForCashier()" class="bg-orange-500 hover:bg-orange-600 text-white px-5 py-3 rounded-xl font-bold text-sm transition">
+                                        Buscar
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="admin-cashier-found-card" class="hidden bg-zinc-900 border border-zinc-800 p-4 rounded-2xl space-y-4">
+                                <div class="flex justify-between items-center border-b border-zinc-800 pb-3">
+                                    <div>
+                                        <span class="text-[10px] text-zinc-500 uppercase font-bold">Cliente Seleccionado</span>
+                                        <h5 id="ac-name" class="font-black text-white text-base">Carlos Pérez</h5>
+                                        <p id="ac-ced" class="text-xs text-zinc-400 font-mono">Cédula: 1728394050</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="text-[10px] text-zinc-500 uppercase font-bold block">Sellos Actuales</span>
+                                        <span id="ac-stamps" class="text-xl font-black text-orange-400">3 / 6</span>
+                                    </div>
+                                </div>
+                                <form onsubmit="adminSubmitStampDirect(event)" class="space-y-3">
+                                    <input type="hidden" id="ac-target-cedula">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">Número de factura</label>
+                                        <input type="text" id="ac-factura" required placeholder="Ej. 001-002-0045" 
+                                            class="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-white text-sm outline-none focus:border-orange-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">Valor de la factura ($)</label>
+                                        <input type="number" step="0.01" min="0" id="ac-valor" required placeholder="Ej. 35.00" 
+                                            class="w-full px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-white text-sm outline-none focus:border-orange-500">
+                                    </div>
+                                    <div class="bg-orange-500/10 border border-orange-500/20 p-3 rounded-xl flex items-center justify-between text-xs text-orange-400 font-semibold">
+                                        <span id="ac-calc-preview">Sellos a otorgar: +1 sello ($20 = 1)</span>
+                                    </div>
+                                    <button type="submit" class="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold py-3.5 px-4 rounded-xl transition shadow-lg shadow-orange-500/20">
+                                        Registrar consumo y otorgar sellos
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ADMIN TAB 4: GESTIÓN DE RECOMPENSAS -->
+                <div id="admin-tab-rewards" class="hidden space-y-6">
+                    <div class="bg-[#18181b] border border-zinc-800 rounded-3xl p-6 space-y-4">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h4 class="font-bold text-white text-base">Gestión de recompensas</h4>
+                                <p class="text-xs text-zinc-400">Crea, edita y activa premios disponibles para los clientes.</p>
+                            </div>
+                            <button onclick="showModal('Nueva Recompensa', 'Formulario para agregar nuevo premio habilitado.')" class="bg-orange-500 hover:bg-orange-600 text-white font-bold px-4 py-2 rounded-xl text-xs transition">
+                                + Nuevo premio
+                            </button>
+                        </div>
+                        <div class="space-y-3" id="admin-rewards-list-container">
+                            <!-- Filled via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ADMIN TAB 5: REPORTES Y ESTADÍSTICAS -->
+                <div id="admin-tab-reports" class="hidden space-y-6">
+                    <div class="bg-[#18181b] border border-zinc-800 rounded-3xl p-6 space-y-4">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-zinc-800 pb-4">
+                            <div>
+                                <h4 class="font-bold text-white text-base">Reportes y análisis</h4>
+                                <p class="text-xs text-zinc-400">Análisis del comportamiento de los clientes y consumos.</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="date" value="2026-04-01" class="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white outline-none">
+                                <span class="text-zinc-500">hasta</span>
+                                <input type="date" value="2026-04-30" class="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white outline-none">
+                                <button onclick="showModal('Reporte Generado', 'El reporte con rango de fechas ha sido generado con éxito.')" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition">Generar</button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                            <div class="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl space-y-3">
+                                <h5 class="font-bold text-white text-sm">Resumen del periodo</h5>
+                                <div class="space-y-2 text-xs divide-y divide-zinc-800">
+                                    <div class="flex justify-between pt-2"><span class="text-zinc-400">Total de consumos:</span><span class="font-bold text-white">$2,450.00</span></div>
+                                    <div class="flex justify-between pt-2"><span class="text-zinc-400">Sellos entregados:</span><span class="font-bold text-orange-400">532</span></div>
+                                    <div class="flex justify-between pt-2"><span class="text-zinc-400">Recompensas canjeadas:</span><span class="font-bold text-amber-400">87</span></div>
+                                    <div class="flex justify-between pt-2"><span class="text-zinc-400">Clientes nuevos:</span><span class="font-bold text-emerald-400">23</span></div>
+                                </div>
+                            </div>
+                            <div class="bg-zinc-900 border border-zinc-800 p-5 rounded-2xl space-y-3">
+                                <h5 class="font-bold text-white text-sm">Premios más solicitados</h5>
+                                <div class="space-y-3 text-xs" id="admin-report-rewards-bars">
+                                    <!-- Filled via JS -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-[#121215] border-t border-zinc-800 py-4 mt-8">
+        <div class="max-w-6xl mx-auto px-4 text-center text-xs text-zinc-500">
+            Stop Deli &bull; Sistema Inteligente de Fidelización &bull; Todos los derechos reservados
+        </div>
+    </footer>
+
+    <!-- Application JavaScript Logic -->
+    <script>
+        // Central In-Memory / LocalStorage Mock Database
+        let state = {
+            currentUserCedula: null,
+            isAdmin: false,
+            rewardOptions: [
+                { id: 1, title: "10 alitas gratis", subtitle: "Salsa a elección (BBQ, Maracuyá, Bufalo)", active: true, icon: "fa-drumstick-bite", count: 42 },
+                { id: 2, title: "Refresco de 1 litro", subtitle: "Coca-Cola, Fanta o Sprite fría", active: true, icon: "fa-bottle-water", count: 28 },
+                { id: 3, title: "Papas gratis", subtitle: "Porción grande con salsa de la casa", active: true, icon: "fa-utensils", count: 17 }
+            ],
+            clients: [
+                { cedula: "1728394050", nombre: "Carlos Pérez", stamps: 3, rewardsReady: 0, spent: 60.00, history: [
+                    { date: "12/04/2026", type: "cons", factura: "000120", valor: 40.00, stampsAdded: 2 },
+                    { date: "15/04/2026", type: "cons", factura: "000142", valor: 20.00, stampsAdded: 1 }
+                ]},
+                { cedula: "0987654321", nombre: "María López", stamps: 6, rewardsReady: 1, spent: 120.00, history: [
+                    { date: "10/04/2026", type: "cons", factura: "000102", valor: 60.00, stampsAdded: 3 },
+                    { date: "14/04/2026", type: "cons", factura: "000135", valor: 60.00, stampsAdded: 3 }
+                ]},
+                { cedula: "1122334455", nombre: "Juan García", stamps: 1, rewardsReady: 0, spent: 25.00, history: [
+                    { date: "18/04/2026", type: "cons", factura: "000155", valor: 25.00, stampsAdded: 1 }
+                ]},
+                { cedula: "6677889900", nombre: "Ana Torres", stamps: 4, rewardsReady: 0, spent: 85.00, history: [
+                    { date: "20/04/2026", type: "cons", factura: "000178", valor: 85.00, stampsAdded: 4 }
+                ]}
+            ]
+        };
+
+        if (localStorage.getItem('stop_deli_full_state')) {
+            try {
+                state = JSON.parse(localStorage.getItem('stop_deli_full_state'));
+            } catch(e) { console.error(e); }
+        }
+
+        function saveState() {
+            localStorage.setItem('stop_deli_full_state', JSON.stringify(state));
+        }
+
+        // Modal Helpers
+        function showModal(title, message, isSuccess = true) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            const iconDiv = document.getElementById('modal-icon');
+            if (isSuccess) {
+                iconDiv.className = "w-16 h-16 bg-orange-500/10 text-orange-500 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 border border-orange-500/20";
+                iconDiv.innerHTML = '<i class="fa-solid fa-check"></i>';
+            } else {
+                iconDiv.className = "w-16 h-16 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 border border-amber-500/20";
+                iconDiv.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+            }
+            document.getElementById('modal-container').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-container').classList.add('hidden');
+        }
+
+        // Main Switcher between Client & Admin
+        function switchMainView(view) {
+            const clientView = document.getElementById('view-client');
+            const adminView = document.getElementById('view-admin');
+            const btnClient = document.getElementById('nav-btn-client');
+            const btnAdmin = document.getElementById('nav-btn-admin');
+
+            if (view === 'client') {
+                clientView.classList.remove('hidden');
+                adminView.classList.add('hidden');
+                btnClient.className = "px-3 py-1.5 text-xs font-semibold rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20 transition";
+                btnAdmin.className = "px-3 py-1.5 text-xs font-semibold rounded-xl bg-zinc-900 text-zinc-300 border border-zinc-800 hover:bg-zinc-800 transition";
+                renderClientRouter();
+            } else {
+                clientView.classList.add('hidden');
+                adminView.classList.remove('hidden');
+                btnClient.className = "px-3 py-1.5 text-xs font-semibold rounded-xl bg-zinc-900 text-zinc-300 border border-zinc-800 hover:bg-zinc-800 transition";
+                btnAdmin.className = "px-3 py-1.5 text-xs font-semibold rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20 transition";
+                renderAdminPortal();
+            }
+        }
+
+        // Helper function for admin portal navigation view
+        function renderAdminPortal() {
+            if (state.isAdmin) {
+                document.getElementById('admin-login-box').classList.add('hidden');
+                document.getElementById('admin-dashboard-box').classList.remove('hidden');
+                renderAdminDashboardData();
+            } else {
+                document.getElementById('admin-login-box').classList.remove('hidden');
+                document.getElementById('admin-dashboard-box').classList.add('hidden');
+            }
+        }
+
+        // ================= CLIENT ROUTING & FLOW =================
+        function renderClientRouter() {
+            const landing = document.getElementById('client-screen-landing');
+            const login = document.getElementById('client-screen-login');
+            const success = document.getElementById('client-screen-success');
+            const appShell = document.getElementById('client-app-shell');
+
+            landing.classList.add('hidden');
+            login.classList.add('hidden');
+            success.classList.add('hidden');
+            appShell.classList.add('hidden');
+
+            if (!state.currentUserCedula) {
+                landing.classList.remove('hidden');
+            } else {
+                appShell.classList.remove('hidden');
+                renderClientDashboard();
+            }
+        }
+
+        function goToLoginStep() {
+            document.getElementById('client-screen-landing').classList.add('hidden');
+            document.getElementById('client-screen-login').classList.remove('hidden');
+        }
+
+        function handleClientLogin(e) {
+            e.preventDefault();
+            const cedula = document.getElementById('login-cedula').value.trim();
+            const nombre = document.getElementById('login-nombre').value.trim();
+            if (!cedula || !nombre) return;
+
+            let client = state.clients.find(c => c.cedula === cedula);
+            if (!client) {
+                client = {
+                    cedula: cedula,
+                    nombre: nombre,
+                    stamps: 0,
+                    rewardsReady: 0,
+                    spent: 0.00,
+                    history: []
+                };
+                state.clients.push(client);
+            } else {
+                client.nombre = nombre; // Update name if needed
+            }
+
+            state.currentUserCedula = cedula;
+            saveState();
+
+            // Show success screen first like the reference design
+            document.getElementById('client-screen-login').classList.add('hidden');
+            document.getElementById('success-welcome-title').innerText = `¡Bienvenido, ${nombre}!`;
+            document.getElementById('success-card-name').innerText = nombre;
+            document.getElementById('success-card-ced').innerText = `Cédula: ${cedula}`;
+            document.getElementById('client-screen-success').classList.remove('hidden');
+        }
+
+        function enterDashboard() {
+            document.getElementById('client-screen-success').classList.add('hidden');
+            renderClientRouter();
+        }
+
+        function clientLogout() {
+            state.currentUserCedula = null;
+            saveState();
+            renderClientRouter();
+        }
+
+        function renderClientDashboard() {
+            const client = state.clients.find(c => c.cedula === state.currentUserCedula);
+            if (!client) {
+                clientLogout();
+                return;
+            }
+
+            // Header info
+            document.getElementById('dash-client-name').innerText = client.nombre;
+            document.getElementById('dash-client-ced').innerText = `Cédula: ${client.cedula}`;
+            document.getElementById('stamp-subtitle').innerText = client.stamps >= 6 ? '¡Premio disponible para canjear!' : `Te faltan ${6 - client.stamps} sellos para tu recompensa.`;
+            document.getElementById('stamp-count-badge').innerText = `${client.stamps} de 6 sellos`;
+            document.getElementById('stat-total-spent').innerText = `$${client.spent.toFixed(2)}`;
+
+            // Profile info
+            document.getElementById('profile-name').innerText = client.nombre;
+            document.getElementById('profile-ced').innerText = `Cédula: ${client.cedula}`;
+            document.getElementById('profile-stamps').innerText = `${client.stamps} / 6`;
+            document.getElementById('profile-rewards-ready').innerText = client.rewardsReady;
+
+            // Reward alert banner
+            const alertBanner = document.getElementById('client-reward-alert');
+            if (client.stamps >= 6 || client.rewardsReady > 0) {
+                alertBanner.classList.remove('hidden');
+            } else {
+                alertBanner.classList.add('hidden');
+            }
+
+            // Render 6 stamps grid
+            const grid = document.getElementById('client-stamps-grid');
+            grid.innerHTML = '';
+            for (let i = 1; i <= 6; i++) {
+                const isStamped = i <= client.stamps;
+                const isNext = i === client.stamps + 1 && client.stamps < 6;
+
+                let bgClass = "bg-zinc-900 border-zinc-800 text-zinc-600";
+                let inner = `<span class="text-xs font-bold">#${i}</span>`;
+
+                if (isStamped) {
+                    bgClass = "bg-orange-500/10 border-orange-500 text-orange-500 shadow-sm";
+                    inner = `<i class="fa-solid fa-drumstick-bite text-xl"></i><span class="absolute bottom-1 right-1.5 text-[9px] font-black text-orange-400">✓</span>`;
+                } else if (isNext) {
+                    bgClass = "bg-zinc-900 border-orange-500/60 text-orange-400 stamp-pulse border-dashed";
+                    inner = `<i class="fa-solid fa-plus text-base"></i>`;
+                }
+
+                if (i === 6 && !isStamped) {
+                    inner = `<i class="fa-solid fa-gift text-lg text-amber-500"></i>`;
+                }
+
+                const div = document.createElement('div');
+                div.className = `relative h-20 rounded-2xl border-2 flex flex-col items-center justify-center p-2 transition duration-300 ${bgClass}`;
+                div.innerHTML = inner;
+                grid.appendChild(div);
+            }
+
+            renderClientMovements('all');
+            renderClientCatalog();
+        }
+
+        // Client Tabs Switcher
+        function switchClientTab(tab) {
+            document.getElementById('client-tab-card').classList.add('hidden');
+            document.getElementById('client-tab-mov').classList.add('hidden');
+            document.getElementById('client-tab-rewards').classList.add('hidden');
+            document.getElementById('client-tab-profile').classList.add('hidden');
+
+            document.getElementById('c-tab-card-btn').className = "flex flex-col items-center text-zinc-500 hover:text-zinc-300 space-y-1 transition";
+            document.getElementById('c-tab-mov-btn').className = "flex flex-col items-center text-zinc-500 hover:text-zinc-300 space-y-1 transition";
+            document.getElementById('c-tab-rewards-btn').className = "flex flex-col items-center text-zinc-500 hover:text-zinc-300 space-y-1 transition";
+            document.getElementById('c-tab-profile-btn').className = "flex flex-col items-center text-zinc-500 hover:text-zinc-300 space-y-1 transition";
+
+            if (tab === 'card') {
+                document.getElementById('client-tab-card').classList.remove('hidden');
+                document.getElementById('c-tab-card-btn').className = "flex flex-col items-center text-orange-500 space-y-1 transition";
+            } else if (tab === 'mov') {
+                document.getElementById('client-tab-mov').classList.remove('hidden');
+                document.getElementById('c-tab-mov-btn').className = "flex flex-col items-center text-orange-500 space-y-1 transition";
+            } else if (tab === 'rewards') {
+                document.getElementById('client-tab-rewards').classList.remove('hidden');
+                document.getElementById('c-tab-rewards-btn').className = "flex flex-col items-center text-orange-500 space-y-1 transition";
+            } else if (tab === 'profile') {
+                document.getElementById('client-tab-profile').classList.remove('hidden');
+                document.getElementById('c-tab-profile-btn').className = "flex flex-col items-center text-orange-500 space-y-1 transition";
+            }
+        }
+
+        function filterMovs(type) {
+            document.getElementById('filter-btn-all').className = "px-3 py-1 rounded-lg text-zinc-400 hover:text-white transition";
+            document.getElementById('filter-btn-cons').className = "px-3 py-1 rounded-lg text-zinc-400 hover:text-white transition";
+            document.getElementById('filter-btn-rew').className = "px-3 py-1 rounded-lg text-zinc-400 hover:text-white transition";
+
+            if (type === 'all') document.getElementById('filter-btn-all').className = "px-3 py-1 rounded-lg bg-orange-500 text-white font-semibold transition";
+            if (type === 'cons') document.getElementById('filter-btn-cons').className = "px-3 py-1 rounded-lg bg-orange-500 text-white font-semibold transition";
+            if (type === 'rew') document.getElementById('filter-btn-rew').className = "px-3 py-1 rounded-lg bg-orange-500 text-white font-semibold transition";
+
+            renderClientMovements(type);
+        }
+
+        function renderClientMovements(filter) {
+            const client = state.clients.find(c => c.cedula === state.currentUserCedula);
+            const list = document.getElementById('client-mov-list');
+            if (!client || !client.history || client.history.length === 0) {
+                list.innerHTML = `<p class="text-xs text-zinc-500 text-center py-6">No hay movimientos registrados.</p>`;
+                return;
+            }
+
+            let filtered = client.history;
+            if (filter === 'cons') filtered = client.history.filter(h => h.type === 'cons');
+            if (filter === 'rew') filtered = client.history.filter(h => h.type === 'rew');
+
+            if (filtered.length === 0) {
+                list.innerHTML = `<p class="text-xs text-zinc-500 text-center py-6">No hay movimientos en esta categoría.</p>`;
+                return;
+            }
+
+            list.innerHTML = filtered.map(h => `
+                <div class="py-3 flex items-center justify-between text-xs">
+                    <div>
+                        <span class="font-bold text-white">${h.type === 'rew' ? 'Canje de Premio: ' + h.rewardTitle : 'Consumo - Factura #' + h.factura}</span>
+                        <span class="block text-zinc-500 text-[10px] mt-0.5">${h.date} ${h.valor ? '&bull; $' + h.valor.toFixed(2) : ''}</span>
+                    </div>
+                    <span class="${h.type === 'rew' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-orange-500/10 text-orange-400 border border-orange-500/20'} font-bold px-2.5 py-1 rounded-lg">
+                        ${h.type === 'rew' ? 'Canjeado' : '+' + h.stampsAdded + ' sello' + (h.stampsAdded > 1 ? 's' : '')}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        function renderClientCatalog() {
+            const catalog = document.getElementById('client-catalog-list');
+            catalog.innerHTML = state.rewardOptions.map(r => `
+                <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 bg-orange-500/10 text-orange-400 rounded-xl flex items-center justify-center text-xl"><i class="fa-solid ${r.icon}"></i></div>
+                        <div>
+                            <h5 class="font-bold text-white text-sm">${r.title}</h5>
+                            <p class="text-[10px] text-zinc-400">${r.subtitle}</p>
+                        </div>
+                    </div>
+                    <span class="text-[10px] bg-orange-500/20 text-orange-400 font-bold px-2.5 py-1 rounded-full border border-orange-500/30">6 Sellos</span>
+                </div>
+            `).join('');
+        }
+
+        // Claim Reward Modal Logic
+        function openRewardModal() {
+            const client = state.clients.find(c => c.cedula === state.currentUserCedula);
+            if (!client || client.stamps < 6) {
+                showModal("Aún no disponible", "Necesitas completar los 6 sellos de tu tarjeta para reclamar un premio.", false);
+                return;
+            }
+            const list = document.getElementById('reward-options-list');
+            list.innerHTML = state.rewardOptions.map((r, idx) => `
+                <label class="flex items-center justify-between p-3.5 bg-zinc-900 border border-zinc-800 rounded-xl cursor-pointer hover:border-orange-500 transition">
+                    <div class="flex items-center space-x-3">
+                        <i class="fa-solid ${r.icon} text-orange-400 text-lg"></i>
+                        <div>
+                            <span class="font-bold text-white text-xs block">${r.title}</span>
+                            <span class="text-[10px] text-zinc-400">${r.subtitle}</span>
+                        </div>
+                    </div>
+                    <input type="radio" name="selected_reward" value="${r.title}" ${idx === 0 ? 'checked' : ''} class="accent-orange-500">
+                </label>
+            `).join('');
+            document.getElementById('reward-modal').classList.remove('hidden');
+        }
+
+        function closeRewardModal() {
+            document.getElementById('reward-modal').classList.add('hidden');
+        }
+
+        function confirmClaimReward() {
+            const client = state.clients.find(c => c.cedula === state.currentUserCedula);
+            const radios = document.getElementsByName('selected_reward');
+            let chosen = "10 alitas gratis";
+            for (let r of radios) {
+                if (r.checked) chosen = r.value;
+            }
+
+            client.stamps -= 6; // Deduct cycle
+            client.history.unshift({
+                date: new Date().toLocaleDateString(),
+                type: "rew",
+                rewardTitle: chosen
+            });
+
+            // Update reward stats count
+            let rwObj = state.rewardOptions.find(r => r.title === chosen);
+            if (rwObj) rwObj.count += 1;
+
+            saveState();
+            closeRewardModal();
+            renderClientDashboard();
+            showModal("¡Premio Canjeado!", `Has canjeado con éxito: ${chosen}. Presenta esta pantalla en caja para recibir tu producto.`);
+        }
+
+        // ================= ADMIN PORTAL & DASHBOARD =================
+        function openAdminPortal() {
+            switchMainView('admin');
+            renderAdminPortal();
+        }
+
+        function handleAdminLogin(e) {
+            e.preventDefault();
+            const pass = document.getElementById('admin-pass').value;
+            if (pass === '1234' || pass === 'stop123' || pass === 'admin') {
+                state.isAdmin = true;
+                saveState();
+                document.getElementById('admin-pass').value = '';
+                openAdminPortal();
+            } else {
+                showModal("Contraseña Incorrecta", "La contraseña de administración es incorrecta. Prueba con '1234'", false);
+            }
+        }
+
+        function adminLogout() {
+            state.isAdmin = false;
+            saveState();
+            openAdminPortal();
+        }
+
+        function switchAdminTab(tab) {
+            const tabs = ['dash', 'clients', 'cashier', 'rewards', 'reports'];
+            tabs.forEach(t => {
+                document.getElementById(`admin-tab-${t}`).classList.add('hidden');
+                document.getElementById(`a-btn-${t}`).className = "px-4 py-2 text-xs font-semibold rounded-xl bg-zinc-900 text-zinc-300 hover:bg-zinc-800 border border-zinc-800 transition";
+            });
+
+            document.getElementById(`admin-tab-${tab}`).classList.remove('hidden');
+            document.getElementById(`a-btn-${tab}`).className = "px-4 py-2 text-xs font-semibold rounded-xl bg-orange-500 text-white transition shadow-md";
+
+            if (tab === 'dash') renderAdminDashboardData();
+            if (tab === 'clients') renderAdminClientsTable();
+            if (tab === 'rewards') renderAdminRewardsList();
+            if (tab === 'reports') renderAdminReports();
+        }
+
+        function renderAdminDashboardData() {
+            let totalSpent = state.clients.reduce((acc, c) => acc + c.spent, 0);
+            let totalStamps = state.clients.reduce((acc, c) => acc + c.stamps + (c.history.filter(h=>h.type==='rew').length * 6), 0);
+            let totalRewards = state.clients.reduce((acc, c) => acc + c.history.filter(h => h.type === 'rew').length, 0);
+
+            document.getElementById('stat-admin-clients').innerText = state.clients.length + 120;
+            document.getElementById('stat-admin-active').innerText = state.clients.length;
+            document.getElementById('stat-admin-stamps').innerText = totalStamps + 400;
+            document.getElementById('stat-admin-rewards').innerText = totalRewards + 75;
+            document.getElementById('stat-admin-spent-total').innerText = `$${(totalSpent + 2200).toFixed(2)}`;
+
+            // Chart bars simulation
+            const chart = document.getElementById('admin-chart-bars');
+            const heights = ['30%', '45%', '60%', '50%', '75%', '90%', '80%', '95%'];
+            chart.innerHTML = heights.map((h, i) => `
+                <div class="flex-grow bg-zinc-800 hover:bg-orange-500 rounded-t-lg transition relative group" style="height: ${h}">
+                    <span class="absolute -top-7 left-1/2 -translate-x-1/2 text-[9px] bg-zinc-900 text-white px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap">Sem ${i+1}</span>
+                </div>
+            `).join('');
+
+            // Rewards stats
+            const rList = document.getElementById('admin-rewards-stats-list');
+            rList.innerHTML = state.rewardOptions.map(r => `
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs"><span class="text-white font-medium">${r.title}</span><span class="text-orange-400 font-bold">${r.count} canjes</span></div>
+                    <div class="w-full bg-zinc-900 h-2 rounded-full overflow-hidden">
+                        <div class="bg-gradient-to-r from-orange-500 to-amber-500 h-2 rounded-full" style="width: ${Math.min(100, r.count * 2)}%"></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderAdminClientsTable(filterQuery = '') {
+            const tbody = document.getElementById('admin-clients-table-body');
+            let filtered = state.clients;
+            if (filterQuery) {
+                filtered = state.clients.filter(c => c.nombre.toLowerCase().includes(filterQuery.toLowerCase()) || c.cedula.includes(filterQuery));
+            }
+
+            tbody.innerHTML = filtered.map(c => `
+                <tr class="hover:bg-zinc-900/50 transition">
+                    <td class="py-3 px-4 font-bold text-white">${c.nombre}</td>
+                    <td class="py-3 px-4 font-mono text-zinc-400">${c.cedula}</td>
+                    <td class="py-3 px-4 font-bold text-orange-400">${c.stamps} / 6</td>
+                    <td class="py-3 px-4 font-bold text-amber-400">${c.rewardsReady}</td>
+                    <td class="py-3 px-4"><span class="bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-full text-[10px] font-bold">Activo</span></td>
+                    <td class="py-3 px-4 text-right">
+                        <button onclick="switchAdminTab('cashier'); document.getElementById('admin-cashier-cedula-input').value='${c.cedula}'; adminFindClientForCashier();" 
+                            class="bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 px-3 py-1.5 rounded-lg text-xs font-bold transition">
+                            + Sellar
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function filterAdminClientTable(val) {
+            renderAdminClientsTable(val);
+        }
+
+        // Cashier Tab Find Client
+        function adminFindClientForCashier() {
+            const query = document.getElementById('admin-cashier-cedula-input').value.trim();
+            if (!query) return;
+
+            const client = state.clients.find(c => c.cedula === query || c.nombre.toLowerCase().includes(query.toLowerCase()));
+            const card = document.getElementById('admin-cashier-found-card');
+
+            if (!client) {
+                showModal("Cliente no encontrado", `No existe ningún cliente con cédula o nombre '${query}'. Pídele que se registre escaneando el QR.`, false);
+                card.classList.add('hidden');
+                return;
+            }
+
+            card.classList.remove('hidden');
+            document.getElementById('ac-name').innerText = client.nombre;
+            document.getElementById('ac-ced').innerText = `Cédula: ${client.cedula}`;
+            document.getElementById('ac-stamps').innerText = `${client.stamps} / 6`;
+            document.getElementById('ac-target-cedula').value = client.cedula;
+            document.getElementById('ac-factura').value = '';
+            document.getElementById('ac-valor').value = '';
+            document.getElementById('ac-calc-preview').innerText = 'Sellos a otorgar: +0 sellos ($20 = 1)';
+        }
+
+        // Live calculation in Admin Cashier
+        document.addEventListener('input', function(e) {
+            if (e.target && e.target.id === 'ac-valor') {
+                const val = parseFloat(e.target.value) || 0;
+                const earned = Math.floor(val / 20);
+                document.getElementById('ac-calc-preview').innerText = `Sellos a otorgar: +${earned} sello${earned !== 1 ? 's' : ''} ($20 = 1)`;
+            }
+        });
+
+        function adminSubmitStampDirect(e) {
+            e.preventDefault();
+            const cedula = document.getElementById('ac-target-cedula').value;
+            const factura = document.getElementById('ac-factura').value.trim();
+            const valor = parseFloat(document.getElementById('ac-valor').value);
+
+            const client = state.clients.find(c => c.cedula === cedula);
+            if (!client) return;
+
+            const earned = Math.floor(valor / 20);
+            if (earned <= 0) {
+                showModal("Consumo Insuficiente", "El valor ingresado es menor a $20, por lo que no genera sellos de fidelidad.", false);
+                return;
+            }
+
+            client.stamps += earned;
+            client.spent += valor;
+            client.history.unshift({
+                date: new Date().toLocaleDateString(),
+                type: "cons",
+                factura: factura,
+                valor: valor,
+                stampsAdded: earned
+            });
+
+            saveState();
+            adminFindClientForCashier();
+            showModal("¡Consumo Registrado!", `Se han acreditado +${earned} sellos al cliente ${client.nombre}. Factura #${factura} procesada con éxito.`);
+        }
+
+        function renderAdminRewardsList() {
+            const container = document.getElementById('admin-rewards-list-container');
+            container.innerHTML = state.rewardOptions.map(r => `
+                <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 bg-orange-500/10 text-orange-400 rounded-xl flex items-center justify-center text-xl"><i class="fa-solid ${r.icon}"></i></div>
+                        <div>
+                            <h5 class="font-bold text-white text-sm">${r.title}</h5>
+                            <p class="text-[10px] text-zinc-400">${r.subtitle} &bull; Canjes totales: ${r.count}</p>
+                        </div>
+                    </div>
+                    <span class="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-3 py-1 rounded-full border border-emerald-500/20">Activo</span>
+                </div>
+            `).join('');
+        }
+
+        function renderAdminReports() {
+            const container = document.getElementById('admin-report-rewards-bars');
+            container.innerHTML = state.rewardOptions.map(r => `
+                <div>
+                    <div class="flex justify-between text-xs mb-1"><span class="text-white">${r.title}</span><span class="font-bold text-orange-400">${r.count} solicitudes</span></div>
+                    <div class="w-full bg-zinc-900 h-2 rounded-full overflow-hidden">
+                        <div class="bg-gradient-to-r from-orange-500 to-amber-500 h-2 rounded-full" style="width: ${Math.min(100, r.count * 2.5)}%"></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Initialize on load
+        window.onload = function() {
+            renderClientRouter();
+        };
+    </script>
+</body>
+</html>
